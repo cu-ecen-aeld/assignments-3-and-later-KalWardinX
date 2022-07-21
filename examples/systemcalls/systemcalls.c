@@ -83,7 +83,7 @@ bool do_exec(int count, ...)
         return false;
     }
     else if (ret_f == 0){    //Child
-        int ret = execv(command[0], command+1);
+        execv(command[0], command);
         return false;
     }
     else{               //Parent
