@@ -1,5 +1,10 @@
 #include "systemcalls.h"
-
+#include <stdlib.h>
+#include <unistd.h>
+#include <sys/wait.h>
+#include <fcntl.h>
+#include <syslog.h>
+#include <string.h>
 /**
  * @param cmd the command to execute with system()
  * @return true if the command in @param cmd was executed
@@ -16,8 +21,13 @@ bool do_system(const char *cmd)
  *   and return a boolean true if the system() call completed with success
  *   or false() if it returned a failure
 */
-
-    return true;
+    if (cmd != NULL){
+        const int ret = system(cmd);
+        if (ret != -1 || ret != 127){
+            return true;
+        }    
+    }
+    return false;    
 }
 
 /**
@@ -47,7 +57,7 @@ bool do_exec(int count, ...)
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+    // command[count] = command[count];
 
 /*
  * TODO:
@@ -58,7 +68,30 @@ bool do_exec(int count, ...)
  *   as second argument to the execv() command.
  *
 */
-
+    switch(count){
+        case 2:
+            if (command[0][0] != '/')
+                return false;
+            break;
+        case 3:
+            if (command[0][0] != '/' || command[2][0] != '/')
+                return false;
+            break;
+    }
+    const pid_t ret_f = fork();
+    if (ret_f == -1){
+        return false;
+    }
+    else if (ret_f == 0){    //Child
+        int ret = execv(command[0], command+1);
+        return false;
+    }
+    else{               //Parent
+        const pid_t ret_w = wait(NULL);
+        if (ret_w != ret_f){
+            return false;
+        }
+    }
     va_end(args);
 
     return true;
@@ -82,7 +115,7 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
     command[count] = NULL;
     // this line is to avoid a compile warning before your implementation is complete
     // and may be removed
-    command[count] = command[count];
+    // command[count] = command[count];
 
 
 /*
@@ -92,7 +125,37 @@ bool do_exec_redirect(const char *outputfile, int count, ...)
  *   The rest of the behaviour is same as do_exec()
  *
 */
+    int fd = open(outputfile,
+            O_WRONLY | O_TRUNC | O_CREAT,
+            0644);
+    if ( fd < 0 ){
+        perror("Error");
+        return false;
+    }
+    const pid_t ret_f = fork();
+    switch(ret_f){
+        case -1:
+            return false;
+        case 0:
+            {
+                if(dup2(fd,1)<0){
+                    perror("dup2");
+                    return false;
+                }   
+                close(fd);
+                execv(command[0], command);
+                perror("execv");
+                return false;
+            }
+        default:
+            {
+                close(fd);
+                pid_t ret_w = wait(NULL);
+                if(ret_w != ret_f)
+                    return false;
+            }
 
+    }    
     va_end(args);
 
     return true;
