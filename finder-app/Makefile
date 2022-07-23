@@ -18,4 +18,4 @@ writer.o: writer.c
 	${CC} ${CFLAGS} -c $^
 
 clean: 
-	rm *.o writer
+	rm -f writer *.o
